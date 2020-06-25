@@ -1,11 +1,16 @@
 uEmuera
 =======
 
+<img src="Assets/splash/icon.png" width="256"/>
+
+**Android10 特别说明：**
+**如果放入sdcard/uEmuera下无法找到的话，可以放入sdcard/Android/data/xerysherry.uEmuera/files/下**
+
 Emuera是Emulator of Eramaker的缩写，是Windows平台下文字游戏平台。
 
 该项目为Emuera的Unity3D移植版本。意在利用Unity3D多平台特性，方便移植到非Windows平台。
 
-当前项目以基于emuera1822+v1版本源代码。
+当前项目以基于emuera1824v7版本源代码，部分GXX相关绘制指令没有实现。
 
 几乎可以执行所有era脚本游戏！
 

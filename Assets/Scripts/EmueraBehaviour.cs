@@ -93,8 +93,9 @@ public abstract class EmueraBehaviour : MonoBehaviour
         public override string ToString()
         {
             StringBuilder str = new StringBuilder();
-            foreach(var u in units)
-                str.Append(u.content);
+            var count = units.Count;
+            for(var i=0; i<count; ++i)
+                str.Append(units[i].content);
             return str.ToString();
         }
         public void Update()
@@ -134,7 +135,7 @@ public abstract class EmueraBehaviour : MonoBehaviour
                     if(s is MinorShift.Emuera.GameView.ConsoleImagePart)
                     {
                         var cp = s as MinorShift.Emuera.GameView.ConsoleImagePart;
-                        if(cp.cropped_image != null)
+                        if(cp.Image != null)
                         {
                             if(ud.image_indices == null)
                                 ud.image_indices = new List<int>();

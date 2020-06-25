@@ -2,10 +2,97 @@
 
 namespace uEmuera.Drawing
 {
-    public class Bitmap
+    public class Bitmap : IDisposable
     {
+        public Bitmap(string path)
+        {
+            this.path = path;
+            this.filename = GenericUtils.GetFilename(path);
+        }
+
+        public readonly string path;
+        public readonly string filename;
         public string name;
         public Size size;
+
+        public void Dispose()
+        { }
+        public int Width
+        {
+            get { return size.Width; }
+        }
+        public int Height
+        {
+            get { return size.Height; }
+        }
+        public Size Size { get { return size; } }
+        public Color GetPixel(int x, int y)
+        {
+            var ti = SpriteManager.GetTextureInfo(name, path);
+            var uc = ti.texture.GetPixel(x, y);
+            return new Color(uc.r, uc.g, uc.b, uc.a);
+        }
+        public void SetPixel(Color c, int x, int y)
+        {
+            var ti = SpriteManager.GetTextureInfo(name, path);
+            ti.texture.SetPixel(x, y, new UnityEngine.Color(c.r, c.g, c.b, c.a));
+        }
+        public void Save(string path)
+        {
+            var ti = SpriteManager.GetTextureInfo(name, path);
+            var data = UnityEngine.ImageConversion.EncodeToPNG(ti.texture);
+            System.IO.File.WriteAllBytes(path, data);
+        }
+    }
+
+    public class BitmapTexture : Bitmap
+    {
+        public BitmapTexture(string path)
+            :base(path)
+        {
+            var name = string.Concat(":FILE:", filename);
+            var tiot = SpriteManager.GetTextureInfoOtherThread(name, path,
+                ret =>
+                {
+                    textureinfo = ret;
+                    if(textureinfo == null)
+                        return;
+                    size.Width = ret.texture.width;
+                    size.Height = ret.texture.height;
+                });
+            while(tiot.mutex == null)
+                System.Threading.Thread.Sleep(10);
+            tiot.mutex.WaitOne();
+
+            if(textureinfo == null)
+                return;
+            tiot.mutex.ReleaseMutex();
+            tiot.mutex.Close();
+        }
+        public UnityEngine.Texture2D texture
+        {
+            get { return textureinfo.texture; }
+        }
+        SpriteManager.TextureInfo textureinfo = null;
+    }
+
+    public class BitmapRenderTexture : Bitmap
+    {
+        public BitmapRenderTexture(int x, int y)
+            :base(null)
+        {
+            //var rtot = SpriteManager.GetRenderTextureOtherThread(x, y,
+            //    ret =>
+            //    {
+            //        rt = ret;
+            //        size.Width = ret.width;
+            //        size.Height = ret.height;
+            //    });
+
+            size.Width = x;
+            size.Height = y;
+        }
+        //UnityEngine.RenderTexture rt = null;
     }
 
     public enum GraphicsUnit
@@ -68,6 +155,14 @@ namespace uEmuera.Drawing
         }
 
         public Color Color { get; set; }
+    }
+
+    public sealed class Pen
+    {
+        public Pen()
+        { }
+        public Pen(Color c, Int64 width)
+        { }
     }
 
     public enum FontStyle
@@ -228,6 +323,7 @@ namespace uEmuera.Drawing
         public static readonly Color Green = new Color(0, 255, 0);
         public static readonly Color Grey = new Color(128, 128, 128);
         public static readonly Color Gray = Grey;
+        public static readonly Color Transparent = new Color(0, 0, 0, 0);
 
         //public static Color Clear { get { return new Color(uColor.clear); } }
         //public static Color Cyan { get { return new Color(uColor.cyan); } }
@@ -309,6 +405,15 @@ namespace uEmuera.Drawing
         }
         public int X { get; set; }
         public int Y { get; set; }
+        public void Offset(Point pt)
+        {
+            X += pt.X;
+            Y += pt.Y;
+        }
+        public bool IsEmpty
+        {
+            get { return X == 0 && Y == 0; }
+        }
     }
 
     public struct Size
@@ -328,10 +433,26 @@ namespace uEmuera.Drawing
 
         public int Width { get; set; }
         public int Height { get; set; }
+        public bool IsEmpty
+        {
+            get { return Width == 0 && Height == 0; }
+        }
     }
 
     public struct Rectangle
     {
+        public static Rectangle Intersect(Rectangle left, Rectangle right)
+        {
+            int l = Math.Max(left.Left, right.Left);
+            int r = Math.Min(left.Right, right.Right);
+            int t = Math.Max(left.Top, right.Top);
+            int b = Math.Min(left.Bottom, right.Bottom);
+            if(l < r && t < b)
+                return new Rectangle(l, t, r - l, b - t);
+            else
+                return new Rectangle(0, 0, 0, 0);
+        }
+
         public Rectangle(Point location, Size size)
         {
             X = location.X;
@@ -364,10 +485,20 @@ namespace uEmuera.Drawing
         public int Left { get { return X; } }
         public int Right { get { return X + Width; } }
 
+        public Size Size { get { return new Size(Width, Height); } }
+        public bool IsEmpty { get { return Width == 0 && Height == 0; } }
+
         public bool Contains(Point point)
         {
             return Left <= point.X && point.X < Right &&
                 Top <= point.Y && point.Y < Bottom;
+        }
+        public bool IntersectsWith(Rectangle rect)
+        {
+            return !(rect.Bottom <= Top ||
+                    rect.Top > Bottom ||
+                    rect.Right <= Left ||
+                    rect.Left > Right);
         }
     }
 

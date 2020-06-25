@@ -20,9 +20,7 @@ namespace MinorShift.Emuera.GameView
 			ResourceName = resName ?? "";
 			ButtonResourceName = resNameb;
 
-            cImage = Content.AppContents.GetContent<CroppedImage>(ResourceName);
-            if(cImage != null && !cImage.Enabled)
-                cImage = null;
+            cImage = AppContents.GetSprite(ResourceName);
 #if !UNITY_EDITOR
             if(cImage == null)
             {
@@ -43,12 +41,12 @@ namespace MinorShift.Emuera.GameView
                 if(raw_width != 0)
                 {
                     sb.Append("' width='");
-                    sb.Append(raw_height.ToString());
+                    sb.Append(raw_width.ToString());
                 }
                 if(raw_ypos != 0)
                 {
                     sb.Append("' ypos='");
-                    sb.Append(raw_height.ToString());
+                    sb.Append(raw_ypos.ToString());
                 }
                 sb.Append("'>");
                 AltText = sb.ToString();
@@ -63,30 +61,22 @@ namespace MinorShift.Emuera.GameView
                 return;
             }
 #endif  
-
-            int height = 0;
-			if (cImage.NoResize)
+			int height = 0;
+			if (raw_height == 0)//HTMLで高さが指定されていない又は0が指定された場合、フォントサイズをそのまま高さ(px単位)として使用する。
+				height = Config.FontSize;
+			else//HTMLで高さが指定された場合、フォントサイズの100分率と解釈する。
+				height = Config.FontSize * raw_height / 100;
+			//幅が指定されていない又は0が指定された場合、元画像の縦横比を維持するように幅(px単位)を設定する。1未満は端数としてXsubpixelに記録。
+			//負の値が指定される可能性があるが、最終的なWidthは正の値になるようにあとで調整する。
+			if (raw_width == 0)
 			{
-				height = cImage.Rectangle.Height;
-				Width = cImage.Rectangle.Width;
+				Width = cImage.DestBaseSize.Width * height / cImage.DestBaseSize.Height;
+				XsubPixel = ((float)cImage.DestBaseSize.Width * height) / cImage.DestBaseSize.Height - Width;
 			}
 			else
 			{
-				
-				if (raw_height == 0)
-					height = Config.FontSize;
-				else
-					height = Config.FontSize * raw_height / 100;
-				if (raw_width == 0)
-				{
-					Width = cImage.Rectangle.Width * height / cImage.Rectangle.Height;
-					XsubPixel = ((float)cImage.Rectangle.Width * height) / cImage.Rectangle.Height - Width;
-				}
-				else
-				{
-					Width = Config.FontSize * raw_width / 100;
-					XsubPixel = ((float)Config.FontSize * raw_width / 100f) - Width;
-				}
+				Width = Config.FontSize * raw_width / 100;
+				XsubPixel = ((float)Config.FontSize * raw_width / 100f) - Width;
 			}
 			top = raw_ypos * Config.FontSize / 100;
 			destRect = new Rectangle(0, top, Width, height);
@@ -111,24 +101,26 @@ namespace MinorShift.Emuera.GameView
                     cImageB = cImage;
                 else
                 {
-                    cImageB = Content.AppContents.GetContent<CroppedImage>(ButtonResourceName);
-                    if(cImageB != null && !cImageB.Enabled)
+                    cImageB = AppContents.GetSprite(ButtonResourceName);
+                    if(cImageB != null)
                         cImageB = null;
                 }
 			}
 		}
 
-        public CroppedImage cropped_image { get { return cImage; } }
+        public ASprite Image { get { return cImage; } }
+        public ASprite ImageBackground { get { return cImageB; } }
+        public Rectangle rect { get { return cImage.Rectangle; } }
         public Rectangle dest_rect { get { return destRect; } }
 
-		private readonly CroppedImage cImage;
-		private readonly CroppedImage cImageB;
+		private readonly ASprite cImage;
+		private readonly ASprite cImageB;
 		private readonly int top;
 		private readonly int bottom;
 		private readonly Rectangle destRect;
-#pragma warning disable CS0649 // フィールド 'ConsoleImagePart.ia' は割り当てられません。常に既定値 null を使用します。
-		private readonly ImageAttributes ia;
-#pragma warning restore CS0649 // フィールド 'ConsoleImagePart.ia' は割り当てられません。常に既定値 null を使用します。
+//#pragma warning disable CS0649 // フィールド 'ConsoleImagePart.ia' は割り当てられません。常に既定値 null を使用します。
+//		private readonly ImageAttributes ia;
+//#pragma warning restore CS0649 // フィールド 'ConsoleImagePart.ia' は割り当てられません。常に既定値 null を使用します。
 		public readonly string ResourceName;
 		public readonly string ButtonResourceName;
 		public override int Top { get { return top; } }
@@ -159,27 +151,24 @@ namespace MinorShift.Emuera.GameView
 		{
 			//if (this.Error)
 			//	return;
-			//CroppedImage img = cImage;
+			//ASprite img = cImage;
 			//if (isSelecting && cImageB != null)
 			//	img = cImageB;
-			//Rectangle rect = destRect;
-			////PointX微調整
-			//rect.X = destRect.X + PointX + Config.DrawingParam_ShapePositionShift;
-			//rect.Y = destRect.Y + pointY;
-
-			//if (img != null)
+            //
+			//if (img != null && img.IsCreated)
 			//{
-			//	if(ia == null)
-			//		graph.DrawImage(img.BaseImage.Bitmap, rect, img.Rectangle, GraphicsUnit.Pixel);
-			//	else
-			//		graph.DrawImage(img.BaseImage.Bitmap, rect, img.Rectangle.X,img.Rectangle.Y,img.Rectangle.Width,img.Rectangle.Height , GraphicsUnit.Pixel,ia);
+			//	Rectangle rect = destRect;
+			//	//PointX微調整
+			//	rect.X = destRect.X + PointX + Config.DrawingParam_ShapePositionShift;
+			//	rect.Y = destRect.Y + pointY;
+			//	img.GraphicsDraw(graph, rect);
 			//}
 			//else
 			//{
 			//	if (mode == TextDrawingMode.GRAPHICS)
-			//		graph.DrawString(Str, Config.Font, new SolidBrush(Config.ForeColor), new Point(PointX, pointY));
+			//		graph.DrawString(AltText, Config.Font, new SolidBrush(Config.ForeColor), new Point(PointX, pointY));
 			//	else
-			//		TextRenderer.DrawText(graph, Str, Config.Font, new Point(PointX, pointY), Config.ForeColor, TextFormatFlags.NoPrefix);
+			//		System.Windows.Forms.TextRenderer.DrawText(graph, AltText, Config.Font, new Point(PointX, pointY), Config.ForeColor, System.Windows.Forms.TextFormatFlags.NoPrefix);
 			//}
 		}
 
@@ -187,13 +176,22 @@ namespace MinorShift.Emuera.GameView
 		{
 			//if (this.Error)
 			//	return;
-			//CroppedImage img = cImage;
+			//SpriteF img = cImage as SpriteF;//Graphicsから作成したImageはGDI対象外
 			//if (isSelecting && cImageB != null)
-			//	img = cImageB;
-			//if (img != null)
-			//	GDI.DrawImage(PointX + destRect.X, pointY+ destRect.Y, Width, destRect.Height, img.BaseImage.GDIhDC, img.Rectangle);
+			//	img = cImageB as SpriteF;
+			//if (img != null && img.IsCreated)
+			//{
+			//	int x = PointX + destRect.X;
+			//	int y = pointY + destRect.Y;
+			//	if (!img.DestBasePosition.IsEmpty)
+			//	{
+			//		x = x + img.DestBasePosition.X * destRect.Width / img.SrcRectangle.Width;
+			//		y = y + img.DestBasePosition.Y * destRect.Height / img.SrcRectangle.Height;
+			//	}
+			//	GDI.DrawImage(x, y, Width, destRect.Height, img.BaseImage.GDIhDC, img.SrcRectangle);
+			//}
 			//else
-			//	GDI.TabbedTextOutFull(Config.Font, Config.ForeColor, Str, PointX, pointY);
+			//	GDI.TabbedTextOutFull(Config.Font, Config.ForeColor, AltText, PointX, pointY);
 		}
 	}
 }

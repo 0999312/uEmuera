@@ -20,15 +20,54 @@ public class OptionWindow : MonoBehaviour
         GenericUtils.SetListenerOnClick(msg_cancel, OnMsgCancel);
 
         GenericUtils.SetListenerOnClick(menu_pad, OnMenuPad);
+        GenericUtils.SetListenerOnClick(menu_1_resolution, OnMenuResolution);
+        GenericUtils.SetListenerOnClick(menu_1_language, ShowLanguageBox);
+        GenericUtils.SetListenerOnClick(menu_1_github, OnGithub);
         GenericUtils.SetListenerOnClick(menu_1_exit, OnMenuExit);
 
         GenericUtils.SetListenerOnClick(menu_2_back, OnMenu2Back);
         GenericUtils.SetListenerOnClick(menu_2_restart, OnMenu2Restart);
         GenericUtils.SetListenerOnClick(menu_2_gototitle, OnMenuGotoTitle);
         GenericUtils.SetListenerOnClick(menu_2_savelog, OnMenuSaveLog);
+        GenericUtils.SetListenerOnClick(menu_2_intent, OnIntentBoxShow);
         GenericUtils.SetListenerOnClick(menu_2_exit, OnMenuExit);
+
+        GenericUtils.SetListenerOnClick(resolution_pad, OnResolutionOut);
+        GenericUtils.SetListenerOnClick(resolution_1080p, OnResolution1080p);
+        GenericUtils.SetListenerOnClick(resolution_900p, OnResolution900p);
+        GenericUtils.SetListenerOnClick(resolution_720p, OnResolution720p);
+        GenericUtils.SetListenerOnClick(resolution_540p, OnResolution540p);
+
+        GenericUtils.SetListenerOnClick(language_zhcn, OnSelectLanguage);
+        GenericUtils.SetListenerOnClick(language_jp, OnSelectLanguage);
+        GenericUtils.SetListenerOnClick(language_enus, OnSelectLanguage);
+
+        GenericUtils.SetListenerOnClick(intentbox_L_left, OnIntentLLeft);
+        GenericUtils.SetListenerOnClick(intentbox_L_right, OnIntentLRight);
+        GenericUtils.SetListenerOnClick(intentbox_R_left, OnIntentRLeft);
+        GenericUtils.SetListenerOnClick(intentbox_R_right, OnIntentRRight);
+        GenericUtils.SetListenerOnClick(intentbox_close, OnIntentClose);
+        GenericUtils.SetListenerOnClick(intentbox_reset, OnIntentReset);
+
+        HideResolutionIcon();
+        switch(ResolutionHelper.resolution_index)
+        {
+        case 2:
+            resolution_900p_icon.SetActive(true);
+            break;
+        case 3:
+            resolution_720p_icon.SetActive(true);
+            break;
+        case 4:
+            resolution_540p_icon.SetActive(true);
+            break;
+        case 1:
+        default:
+            resolution_1080p_icon.SetActive(true);
+            break;
+        }
     }
-	
+
     void OnQuickButtonClick()
     {
         if(quick_buttons.IsShow)
@@ -112,11 +151,15 @@ public class OptionWindow : MonoBehaviour
     {
         if(EmueraThread.instance.Running())
         {
-            ShowMessageBox("等待", "请等待核心完成！");
+            ShowMessageBox(
+                MultiLanguage.GetText("[Wait]"), 
+                MultiLanguage.GetText("[WaitContent]"));
         }
         else
         {
-            ShowMessageBox("回到选单", "是否回到选单？",
+            ShowMessageBox(
+                MultiLanguage.GetText("[BackMenu]"),
+                MultiLanguage.GetText("[BackMenuContent]"),
                 () =>
                 {
                     var emuera = GameObject.FindObjectOfType<EmueraMain>();
@@ -129,11 +172,15 @@ public class OptionWindow : MonoBehaviour
     {
         if(EmueraThread.instance.Running())
         {
-            ShowMessageBox("等待", "请等待核心完成！");
+            ShowMessageBox(
+                MultiLanguage.GetText("[Wait]"),
+                MultiLanguage.GetText("[WaitContent]"));
         }
         else
         {
-            ShowMessageBox("重新加载游戏", "是否重新加载游戏？",
+            ShowMessageBox(
+                MultiLanguage.GetText("[ReloadGame]"),
+                MultiLanguage.GetText("[ReloadGameContent]"),
             () =>
             {
                 var emuera = GameObject.FindObjectOfType<EmueraMain>();
@@ -146,11 +193,15 @@ public class OptionWindow : MonoBehaviour
     {
         if(EmueraThread.instance.Running())
         {
-            ShowMessageBox("等待", "请等待核心完成！");
+            ShowMessageBox(
+                MultiLanguage.GetText("[Wait]"),
+                MultiLanguage.GetText("[WaitContent]"));
         }
         else
         {
-            ShowMessageBox("回到标题", "是否回到标题？",
+            ShowMessageBox(
+                MultiLanguage.GetText("[BackTitle]"),
+                MultiLanguage.GetText("[BackTitleContent]"),
             () =>
             {
                 MinorShift.Emuera.GlobalStatic.Console.GotoTitle();
@@ -166,13 +217,20 @@ public class OptionWindow : MonoBehaviour
         path = path + fname + ".log";
         bool result = MinorShift.Emuera.GlobalStatic.Console.OutputLog(path);
 
-        ShowMessageBox("保存日志", 
-            result ? string.Format("日志路径：\n{0}", path) :"失败");
+        ShowMessageBox(MultiLanguage.GetText("[SaveLog]"), 
+            result ? string.Format("{1}：\n{0}", path, MultiLanguage.GetText("[SavePath]")) : MultiLanguage.GetText("[Failure]"));
+        HideMenu();
+    }
+    void OnMenuResolution()
+    {
+        resolution_pad.SetActive(true);
         HideMenu();
     }
     void OnMenuExit()
     {
-        ShowMessageBox("退出游戏", "是否退出游戏？", 
+        ShowMessageBox(
+            MultiLanguage.GetText("[Exit]"),
+            MultiLanguage.GetText("[ExitContent]"), 
             ()=> {
                 Application.Quit();
             }, ()=> { });
@@ -184,11 +242,60 @@ public class OptionWindow : MonoBehaviour
         HideMenu();
     }
 
+    void OnResolutionOut()
+    {
+        resolution_pad.SetActive(false);
+    }
+
+    void OnResolution1080p()
+    {
+        ResolutionHelper.resolution_index = 1;
+        ResolutionHelper.Apply();
+        HideResolutionIcon();
+        resolution_1080p_icon.SetActive(true);
+    }
+
+    void OnResolution900p()
+    {
+        ResolutionHelper.resolution_index = 2;
+        ResolutionHelper.Apply();
+        HideResolutionIcon();
+        resolution_900p_icon.SetActive(true);
+    }
+
+    void OnResolution720p()
+    {
+        ResolutionHelper.resolution_index = 3;
+        ResolutionHelper.Apply();
+        HideResolutionIcon();
+        resolution_720p_icon.SetActive(true);
+    }
+
+    void OnResolution540p()
+    {
+        ResolutionHelper.resolution_index = 4;
+        ResolutionHelper.Apply();
+        HideResolutionIcon();
+        resolution_540p_icon.SetActive(true);
+    }
+
+    void HideResolutionIcon()
+    {
+        resolution_1080p_icon.SetActive(false);
+        resolution_900p_icon.SetActive(false);
+        resolution_720p_icon.SetActive(false);
+        resolution_540p_icon.SetActive(false);
+    }
+
     public void Ready()
     {
         var texts = inprogress.GetComponentsInChildren<Text>();
-        foreach(var text in texts)
+        var length = texts.Length;
+        for(int i=0; i<length; ++i)
+        {
+            var text = texts[i];
             text.color = EmueraBehaviour.FontColor;
+        }
 
         var buttoncolor = EmueraBehaviour.FontColor;
         buttoncolor.a = 0.6f;
@@ -279,6 +386,88 @@ public class OptionWindow : MonoBehaviour
         HideMessageBox();
     }
 
+    public void ShowLanguageBox()
+    {
+        HideMenu();
+        language_box.SetActive(true);
+    }
+    void OnSelectLanguage(UnityEngine.EventSystems.PointerEventData e)
+    {
+        MultiLanguage.SetLanguage(e.pointerPress.name);
+        language_box.SetActive(false);
+    }
+
+    void OnGithub()
+    {
+        Application.OpenURL("https://github.com/xerysherry/uEmuera/releases");
+    }
+
+    void OnIntentBoxShow()
+    {
+        intentbox.SetActive(true);
+        HideMenu();
+    }
+    void OnIntentLLeft()
+    {
+        int value = PlayerPrefs.GetInt("IntentBox_L", 0);
+        value -= 1;
+        if(value < 0)
+            value = 0;
+        PlayerPrefs.SetInt("IntentBox_L", value);
+        intentbox_L_text.text = value.ToString();
+
+        EmueraContent.instance.SetIntentBox(PlayerPrefs.GetInt("IntentBox_L", 0),
+                                            PlayerPrefs.GetInt("IntentBox_R", 0));
+    }
+    void OnIntentLRight()
+    {
+        int value = PlayerPrefs.GetInt("IntentBox_L", 0);
+        value += 1;
+        if(value > 99)
+            value = 99;
+        PlayerPrefs.SetInt("IntentBox_L", value);
+        intentbox_L_text.text = value.ToString();
+
+        EmueraContent.instance.SetIntentBox(PlayerPrefs.GetInt("IntentBox_L", 0),
+                                            PlayerPrefs.GetInt("IntentBox_R", 0));
+    }
+    void OnIntentRLeft()
+    {
+        int value = PlayerPrefs.GetInt("IntentBox_R", 0);
+        value += 1;
+        if(value > 99)
+            value = 99;
+        PlayerPrefs.SetInt("IntentBox_R", value);
+        intentbox_R_text.text = value.ToString();
+
+        EmueraContent.instance.SetIntentBox(PlayerPrefs.GetInt("IntentBox_L", 0),
+                                            PlayerPrefs.GetInt("IntentBox_R", 0));
+    }
+    void OnIntentRRight()
+    {
+        int value = PlayerPrefs.GetInt("IntentBox_R", 0);
+        value -= 1;
+        if(value < 0)
+            value = 0;
+        PlayerPrefs.SetInt("IntentBox_R", value);
+        intentbox_R_text.text = value.ToString();
+
+        EmueraContent.instance.SetIntentBox(PlayerPrefs.GetInt("IntentBox_L", 0),
+                                            PlayerPrefs.GetInt("IntentBox_R", 0));
+    }
+    void OnIntentClose()
+    {
+        intentbox.SetActive(false);
+    }
+    void OnIntentReset()
+    {
+        PlayerPrefs.SetInt("IntentBox_L", 0);
+        PlayerPrefs.SetInt("IntentBox_R", 0);
+        intentbox_L_text.text = "0";
+        intentbox_R_text.text = "0";
+        EmueraContent.instance.SetIntentBox(0, 0);
+    }
+
     public GameObject game_button;
     public Button quick_button;
     public Button input_button;
@@ -307,6 +496,9 @@ public class OptionWindow : MonoBehaviour
 
     public GameObject menu_pad;
     public GameObject menu_1;
+    public GameObject menu_1_resolution;
+    public GameObject menu_1_language;
+    public GameObject menu_1_github;
     public GameObject menu_1_exit;
 
     public GameObject menu_2;
@@ -314,7 +506,33 @@ public class OptionWindow : MonoBehaviour
     public GameObject menu_2_restart;
     public GameObject menu_2_gototitle;
     public GameObject menu_2_savelog;
+    public GameObject menu_2_intent;
     public GameObject menu_2_exit;
+
+    public GameObject resolution_pad;
+    public GameObject resolution_1080p;
+    public GameObject resolution_1080p_icon;
+    public GameObject resolution_900p;
+    public GameObject resolution_900p_icon;
+    public GameObject resolution_720p;
+    public GameObject resolution_720p_icon;
+    public GameObject resolution_540p;
+    public GameObject resolution_540p_icon;
+
+    public GameObject language_box;
+    public GameObject language_zhcn;
+    public GameObject language_jp;
+    public GameObject language_enus;
+
+    public GameObject intentbox;
+    public GameObject intentbox_L_left;
+    public GameObject intentbox_L_right;
+    public GameObject intentbox_R_left;
+    public GameObject intentbox_R_right;
+    public GameObject intentbox_close;
+    public GameObject intentbox_reset;
+    public Text intentbox_L_text;
+    public Text intentbox_R_text;
 
     bool auto_rotation
     {

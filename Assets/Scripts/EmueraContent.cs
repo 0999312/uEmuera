@@ -19,25 +19,42 @@ public class EmueraContent : MonoBehaviour
     public RectTransform cache_images;
     public OptionWindow option_window;
 
+    Camera main_camere;
     Image background;
     uEmuera.Drawing.Color background_color;
 
     public RectTransform rect_transform { get { return (RectTransform)transform; } }
+    RectMask2D mask2d;
 
     void Awake()
     {
         FontUtils.SetDefaultFont(default_fontname);
+        main_camere = GameObject.FindObjectOfType<Camera>();
     }
 
     void Start()
     {
         instance_ = this;
         background = GetComponent<Image>();
+        mask2d = GetComponent<RectMask2D>();
 
         GenericUtils.SetListenerOnBeginDrag(gameObject, OnBeginDrag);
         GenericUtils.SetListenerOnDrag(gameObject, OnDrag);
         GenericUtils.SetListenerOnEndDrag(gameObject, OnEndDrag);
         GenericUtils.SetListenerOnClick(gameObject, OnClick);
+
+        SetIntentBox(PlayerPrefs.GetInt("IntentBox_L", 0),
+                    PlayerPrefs.GetInt("IntentBox_R", 0));
+    }
+
+    public void SetIntentBox(int left, int right)
+    {
+        if(left == 0 && right == 0)
+            mask2d.enabled = false;
+        else
+            mask2d.enabled = true;
+        rect_transform.anchoredPosition = new Vector2((left - right) / 2.0f, 0);
+        rect_transform.sizeDelta = new Vector2(-right - left, 0);
     }
 
     int GetLineNoIndex(int lineno)
@@ -182,9 +199,10 @@ public class EmueraContent : MonoBehaviour
             display_lines_.RemoveRange(count - remove_count, remove_count);
 
         List<EmueraImage> image_removelist = null;
-        foreach(var kv in display_images_)
+        var display_iter = display_images_.GetEnumerator();
+        while(display_iter.MoveNext())
         {
-            var image = kv.Value;
+            var image = display_iter.Current.Value;
             if(image.logic_y > pos.y + display_height ||
                 image.logic_y + image.logic_height < pos.y)
             {
@@ -197,8 +215,11 @@ public class EmueraContent : MonoBehaviour
         }
         if(image_removelist != null)
         {
-            foreach(var image in image_removelist)
+            var listcount = image_removelist.Count;
+            EmueraImage image = null;
+            for(int i=0; i<listcount; ++i)
             {
+                image = image_removelist[i];
                 PushImageContainer(image);
                 display_images_.Remove(image.LineNo * 1000 + image.UnitIdx);
             }
@@ -350,6 +371,7 @@ public class EmueraContent : MonoBehaviour
             return;
         background.color = GenericUtils.ToUnityColor(color);
         background_color = color;
+        main_camere.backgroundColor = background.color;
     }
     public void Ready()
     {
@@ -394,10 +416,12 @@ public class EmueraContent : MonoBehaviour
 
         display_lines_.Clear();
 
-        foreach(var line in cache_lines_)
-            GameObject.Destroy(line.gameObject);
-        foreach(var image in cache_images_)
-            GameObject.Destroy(image.gameObject);
+        var iter = cache_lines_.GetEnumerator();
+        while(iter.MoveNext())
+            GameObject.Destroy(iter.Current.gameObject);
+        var iter2 = cache_images_.GetEnumerator();
+        while(iter2.MoveNext())
+            GameObject.Destroy(iter2.Current.gameObject);
 
         cache_lines_.Clear();
         cache_images_.Clear();
@@ -488,20 +512,24 @@ public class EmueraContent : MonoBehaviour
                 break;
         }
         List<int> imageremove = new List<int>();
-        foreach(var image in display_images_)
+
+        var iter = display_images_.GetEnumerator();
+        while(iter.MoveNext())
         {
+            var image = iter.Current;
             if(image.Key / 1000 >= lineno)
             {
                 PushImageContainer(image.Value);
                 imageremove.Add(image.Key);
             }
         }
-        foreach(var key in imageremove)
+        var remove = imageremove.Count;
+        for(var j=0; j<remove; ++j)
         {
-            display_images_.Remove(key);
+            display_images_.Remove(imageremove[j]);
         }
 
-        var remove = 0;
+        remove = 0;
         for(; i < display_lines_.Count; ++i, ++remove)
         {
             PushLine(display_lines_[i]);

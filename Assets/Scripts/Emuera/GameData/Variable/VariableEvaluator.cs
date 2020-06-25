@@ -291,63 +291,63 @@ namespace MinorShift.Emuera.GameData.Variable
             return sum;
 		}
 
-        public string GetJoinedStr(FixedVariableTerm p, string delimiter, Int64 index1, Int64 index2)
+        public string GetJoinedStr(FixedVariableTerm p, string delimiter, Int64 index1, Int64 length)
         {
             string sum = "";
-            var identifier = p.Identifier;
+            var pIdentifier = p.Identifier;
 
             if (p.IsString)
             {
-                if (identifier.IsArray1D)
+                if (pIdentifier.IsArray1D)
                 {
-                    return string.Join(delimiter, (string[])identifier.GetArray(), (int)index1, (int)index2);
+                    return string.Join(delimiter, (string[])pIdentifier.GetArray(), (int)index1, (int)length);
                 }
-                else if (identifier.IsArray2D)
+                else if (pIdentifier.IsArray2D)
                 {
-					long[] arguments = new long[2] { p.Index1, -1 };
-                    for(int i = (int)index1; i < (int)index2; ++i)
+                    var arguments = new long[] { p.Index1, 0 };
+                    for(int i = 0; i < (int)length; i++)
                     {
-                        arguments[1] = i;
-                        sum += identifier.GetStrValue(GlobalStatic.EMediator, arguments) + ((i + 1 < (int)index2) ? delimiter : "");
+                        arguments[1] = index1 + i;
+                        sum += pIdentifier.GetStrValue(GlobalStatic.EMediator, arguments) + ((i < ((int)length - 1)) ? delimiter : "");
                     }
                 }
                 else
                 {
-					long[] arguments = new long[3] { p.Index1, p.Index2, -1 };
-                    for(int i = (int)index1; i < (int)index2; ++i)
+                    var arguments = new long[] { p.Index1, p.Index2, 0 };
+                    for(int i = 0; i < (int)length; i++)
                     {
-                        arguments[2] = i;
-                        sum += identifier.GetStrValue(GlobalStatic.EMediator, arguments) + ((i + 1 < (int)index2) ? delimiter : "");
+                        arguments[2] = index1 + i;
+                        sum += pIdentifier.GetStrValue(GlobalStatic.EMediator, arguments) + ((i < ((int)length - 1)) ? delimiter : "");
                     }
                 }
             }
             else
             {
-                if (identifier.IsArray1D)
+                if (pIdentifier.IsArray1D)
                 {
-					long[] arguments = new long[1] {-1};
-                    for(int i = (int)index1; i < (int)index2; ++i)
+                    var arguments = new long[] { 0 };
+                    for(int i = 0; i < (int)length; i++)
                     {
-                        arguments[0] = i;
-                        sum += (identifier.GetIntValue(GlobalStatic.EMediator, arguments)).ToString() + ((i + 1 < (int)index2) ? delimiter : "");
+                        arguments[0] = index1 + i;
+                        sum += (pIdentifier.GetIntValue(GlobalStatic.EMediator, arguments)).ToString() + ((i < ((int)length - 1)) ? delimiter : "");
                     }
                 }
-                else if (identifier.IsArray2D)
+                else if (pIdentifier.IsArray2D)
                 {
-					long[] arguments = new long[2] { p.Index1, -1 };
-                    for(int i = (int)index1; i < (int)index2; ++i)
+                    var arguments = new long[] { p.Index1, 0 };
+                    for(int i = 0; i < (int)length; i++)
                     {
-                        arguments[1] = i;
-                        sum += (identifier.GetIntValue(GlobalStatic.EMediator, arguments)).ToString() + ((i + 1 < (int)index2) ? delimiter : "");
+                        arguments[1] = index1 + i;
+                        sum += (pIdentifier.GetIntValue(GlobalStatic.EMediator, arguments)).ToString() + ((i < ((int)length - 1)) ? delimiter : "");
                     }
                 }
                 else
                 {
-					long[] arguments = new long[3] { p.Index1, p.Index2, -1 };
-                    for(int i = (int)index1; i < (int)index2; ++i)
+                    var arguments = new long[] { p.Index1, p.Index2, 0 };
+                    for(int i = 0; i < (int)length; i++)
                     {
-                        arguments[2] = i;
-                        sum += (identifier.GetIntValue(GlobalStatic.EMediator, arguments)).ToString() + ((i + 1 < (int)index2) ? delimiter : "");
+                        arguments[2] = index1 + i;
+                        sum += (pIdentifier.GetIntValue(GlobalStatic.EMediator, arguments)).ToString() + ((i < ((int)length - 1)) ? delimiter : "");
                     }
                 }
             }
@@ -485,60 +485,46 @@ namespace MinorShift.Emuera.GameData.Variable
 
 			if (isLast)
 			{
-                if(isExact)
-                {
-                    for(int i = (int)end - 1; i >= (int)start; --i)
-                    {
-                        //Nullならないものと見なして飛ばす
-                        if(array[i] == null)
-                            continue;
-                        Match match = target.Match(array[i]);
-                        //正規表現に引っかかった文字列の長さ＝元の文字列の長さなら完全一致
-                        if(match.Success && array[i].Length == match.Length)
-                            return (Int64)i;
-                    }
-				}
-				else
-                {
-                    for(int i = (int)end - 1; i >= (int)start; --i)
-                    {
-						//Nullならないものと見なして飛ばす
-						if (array[i] == null)
-							continue;
+				for (int i = (int)end - 1; i >= (int)start; --i)
+				{
+					//1823 Nullなら空文字列として扱う
+					string str = array[i] ?? "";
+					if (isExact)
+					{
+						Match match = target.Match(str);
+						//正規表現に引っかかった文字列の長さ＝元の文字列の長さなら完全一致
+						if (match.Success && str.Length == match.Length)
+							return (Int64)i;
+					}
+					else
+					{
 						//部分一致なのでひっかかればOK
-						if (target.IsMatch(array[i]))
+						if (target.IsMatch(str))
 							return (Int64)i;
 					}
 				}
 			}
 			else
 			{
-                if(isExact)
-                {
-                    for(int i = (int)start; i < (int)end; ++i)
-                    {
-                        //Nullならないものと見なして飛ばす
-                        if(array[i] == null)
-                            continue;
-                        //正規表現に引っかかった文字列の長さ＝元の文字列の長さなら完全一致
-                        Match match = target.Match(array[i]);
-                        if(match.Success && array[i].Length == match.Length)
-                            return (Int64)i;
-                    }
-                }
-                else
-                {
-                    for(int i = (int)start; i < (int)end; ++i)
-                    {
-                        //Nullならないものと見なして飛ばす
-                        if(array[i] == null)
-                            continue;
-                        //部分一致なのでひっかかればOK
-                        if(target.IsMatch(array[i]))
-                            return (Int64)i;
-                    }
-                }
-            }
+				for (int i = (int)start; i < (int)end; ++i)
+				{
+					//1823 Nullなら空文字列として扱う
+					string str = array[i] ?? "";
+					if (isExact)
+					{
+						//正規表現に引っかかった文字列の長さ＝元の文字列の長さなら完全一致
+						Match match = target.Match(str);
+						if (match.Success && str.Length == match.Length)
+							return (Int64)i;
+					}
+					else
+					{
+						//部分一致なのでひっかかればOK
+						if (target.IsMatch(str))
+							return (Int64)i;
+					}
+				}
+			}
 			return -1;
 		}
 
@@ -2341,51 +2327,56 @@ namespace MinorShift.Emuera.GameData.Variable
 		public bool SaveGlobal()
 		{
 			string filepath = getSaveDataPathG();
-			EraDataWriter writer = null;
-			EraBinaryDataWriter bWriter = null;
-			FileStream fs = null;
 			try
 			{
 				Config.CreateSavDir();
-				fs = new FileStream(filepath, FileMode.Create, FileAccess.Write);
-				if (Config.SystemSaveInBinary)
+				using (FileStream fs = new FileStream(filepath, FileMode.Create, FileAccess.Write))
 				{
+					if (Config.SystemSaveInBinary)
+					{
 
-					bWriter = new EraBinaryDataWriter(fs);
-					bWriter.WriteHeader();
-					bWriter.WriteFileType(EraSaveFileType.Global);
-					bWriter.WriteInt64(gamebase.ScriptUniqueCode);
-					bWriter.WriteInt64(gamebase.ScriptVersion);
-					bWriter.WriteString("");//saveMes
-					varData.SaveGlobalToStreamBinary(bWriter);
-					bWriter.WriteEOF();
-				}
-				else
-				{
-					writer = new EraDataWriter(fs);
-					writer.Write(gamebase.ScriptUniqueCode);
-					writer.Write(gamebase.ScriptVersion);
-					varData.SaveGlobalToStream(writer);
-					writer.EmuStart();
-					varData.SaveGlobalToStream1808(writer);
+						using (EraBinaryDataWriter bWriter = new EraBinaryDataWriter(fs))
+						{
+							bWriter.WriteHeader();
+							bWriter.WriteFileType(EraSaveFileType.Global);
+							bWriter.WriteInt64(gamebase.ScriptUniqueCode);
+							bWriter.WriteInt64(gamebase.ScriptVersion);
+							bWriter.WriteString("");//saveMes
+							varData.SaveGlobalToStreamBinary(bWriter);
+							bWriter.WriteEOF();
+							bWriter.Close();
+						}
+					}
+					else
+					{
+						using (EraDataWriter writer = new EraDataWriter(fs))
+						{
+							writer.Write(gamebase.ScriptUniqueCode);
+							writer.Write(gamebase.ScriptVersion);
+							varData.SaveGlobalToStream(writer);
+							writer.EmuStart();
+							varData.SaveGlobalToStream1808(writer);
+							writer.Close();
+						}
+					}
 				}
 			}
-			//catch (SystemException)
-			//{
-			//	throw new CodeEE("グローバルデータの保存中にエラーが発生しました");
-			//	//console.PrintError(
-			//	//console.NewLine();
-			//	//return false;
-			//}
-			finally
+			catch (SystemException)
 			{
-				if (writer != null)
-					writer.Close();
-				else if (bWriter != null)
-					bWriter.Close();
-				else if (fs != null)
-					fs.Close();
+				throw new CodeEE("グローバルデータの保存中にエラーが発生しました");
+				//console.PrintError(
+				//console.NewLine();
+				//return false;
 			}
+			//finally
+			//{
+			//	if (writer != null)
+			//		writer.Close();
+			//	else if (bWriter != null)
+			//		bWriter.Close();
+			//	else if (fs != null)
+			//		fs.Close();
+			//}
 			return true;
 		}
 

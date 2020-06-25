@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using MinorShift.Emuera.Content;
+using uEmuera.Drawing;
 
 internal static class SpriteManager
 {
@@ -32,7 +33,7 @@ internal static class SpriteManager
             texture = tex;
             pasttime = Time.unscaledTime + kPastTime;
         }
-        internal SpriteInfo GetSprite(CroppedImage src)
+        internal SpriteInfo GetSprite(ASprite src)
         {
             SpriteInfo sprite = null;
             if(!sprites.TryGetValue(src.Name, out sprite))
@@ -55,9 +56,10 @@ internal static class SpriteManager
         }
         public void Dispose()
         {
-            foreach(var kv in sprites)
+            var iter = sprites.Values.GetEnumerator();
+            while(iter.MoveNext())
             {
-                kv.Value.Dispose();
+                iter.Current.Dispose();
             }
             sprites.Clear();
             sprites = null;
@@ -75,7 +77,7 @@ internal static class SpriteManager
     }
     class CallbackInfo
     {
-        public CallbackInfo(CroppedImage src, object obj, 
+        public CallbackInfo(ASprite src, object obj, 
                             Action<object, SpriteInfo> callback)
         {
             this.src = src;
@@ -86,7 +88,7 @@ internal static class SpriteManager
         {
             callback(obj, info);
         }
-        public CroppedImage src;
+        public ASprite src;
         object obj;
         Action<object, SpriteInfo> callback;
     }
@@ -96,28 +98,38 @@ internal static class SpriteManager
 #if UNITY_EDITOR
         kPastTime = 300.0f;
         GenericUtils.StartCoroutine(Update());
+        GenericUtils.StartCoroutine(UpdateRenderOP());
 #else
         var memorysize = SystemInfo.systemMemorySize;
         if(memorysize <= 4096)
         {
             kPastTime = 300.0f;
             GenericUtils.StartCoroutine(Update());
+            GenericUtils.StartCoroutine(UpdateRenderOP());
         }
         else if(memorysize <= 8192)
         {
             kPastTime = 600.0f;
             GenericUtils.StartCoroutine(Update());
+            GenericUtils.StartCoroutine(UpdateRenderOP());
         }
-        else
-        {
+        //else
+        //{
             //
-        }
+        //}
 #endif
     }
-    public static void GetSprite(CroppedImage src, 
+    public static void GetSprite(ASprite src, 
                                 object obj, Action<object, SpriteInfo> callback)
     {
-        var basename = src.BaseImage.Name;
+        if(src == null || src.Bitmap == null)
+        {
+            if(callback != null)
+                callback(null, null);
+            return;
+        }
+
+        var basename = src.Bitmap.filename;
         TextureInfo ti = null;
         texture_dict.TryGetValue(basename, out ti);
         if(ti == null)
@@ -130,7 +142,7 @@ internal static class SpriteManager
             {
                 list = new List<CallbackInfo> { item };
                 loading_set.Add(basename, list);
-                GenericUtils.StartCoroutine(Loading(src.BaseImage));
+                GenericUtils.StartCoroutine(Loading(src.Bitmap));
             }
         }
         else
@@ -167,10 +179,72 @@ internal static class SpriteManager
         return ti;
     }
 
-    static IEnumerator Loading(BaseImage baseimage)
+    public static TextureInfoOtherThread GetTextureInfoOtherThread(
+        string name, string path, Action<TextureInfo> callback)
+    {
+        var ti = new TextureInfoOtherThread
+        {
+            name = name,
+            path = path,
+            callback = callback,
+            mutex = null,
+        };
+        texture_other_threads.Add(ti);
+        return ti;
+    }
+    public class TextureInfoOtherThread
+    {
+        public string name;
+        public string path;
+        public Action<TextureInfo> callback;
+        public System.Threading.Mutex mutex;
+    }
+    static List<TextureInfoOtherThread> texture_other_threads = new List<TextureInfoOtherThread>();
+
+    public static RenderTextureOtherThread GetRenderTextureOtherThread(int x, int y, Action<RenderTexture> callback)
+    {
+        var ti = new RenderTextureOtherThread
+        {
+            x = x,
+            y = y,
+            callback = callback,
+            mutex = null,
+        };
+        render_texture_other_threads.Add(ti);
+        return ti;
+    }
+    public class RenderTextureOtherThread
+    {
+        public int x;
+        public int y;
+        public Action<RenderTexture> callback;
+        public System.Threading.Mutex mutex;
+    }
+    static List<RenderTextureOtherThread> render_texture_other_threads = new List<RenderTextureOtherThread>();
+
+    ///public static RenderTextureDoSomething RenderTexture
+    ///
+
+    public class RenderTextureDoSomething
+    {
+        public enum Code
+        {
+            kClear,
+            kDrawRectangle,
+            kFillRectangle,
+            kDrawCImg,
+            kDrawG,
+            kDrawGWithMask,
+            kSetColor,
+            kGetColor,
+        }
+        //Todo: 实现对于方法
+    }
+
+    static IEnumerator Loading(Bitmap baseimage)
     {
         TextureInfo ti = null;
-        FileInfo fi = new FileInfo(baseimage.Filepath);
+        FileInfo fi = new FileInfo(baseimage.path);
         if(fi.Exists)
         {
             FileStream fs = fi.OpenRead();
@@ -183,26 +257,35 @@ internal static class SpriteManager
 
             //TextureFormat format = TextureFormat.RGB24;
             TextureFormat format = TextureFormat.DXT1;
-            if(uEmuera.Utils.GetSuffix(baseimage.Filepath).ToLower() == "png")
+            if(uEmuera.Utils.GetSuffix(baseimage.path).ToLower() == "png")
                 format = TextureFormat.DXT5;
                 //format = TextureFormat.ARGB32;
 
             var tex = new Texture2D(4, 4, format, false);
             if(tex.LoadImage(content))
             {
-                ti = new TextureInfo(baseimage.Name, tex);
-                texture_dict.Add(baseimage.Name, ti);
+                ti = new TextureInfo(baseimage.filename, tex);
+                texture_dict.Add(baseimage.filename, ti);
+
+                baseimage.size.Width = tex.width;
+                baseimage.size.Height = tex.height;
             }
         }
-        var list = loading_set[baseimage.Name];
-        foreach(var item in list)
+        List<CallbackInfo> list = null;
+        if(loading_set.TryGetValue(baseimage.filename, out list))
         {
-            item.DoCallback(GetSpriteInfo(ti, item.src));
+            var count = list.Count;
+            CallbackInfo item = null;
+            for(int i=0; i<count; ++i)
+            {
+                item = list[i];
+                item.DoCallback(GetSpriteInfo(ti, item.src));
+            }
+            list.Clear();
+            loading_set.Remove(baseimage.filename);
         }
-        list.Clear();
-        loading_set.Remove(baseimage.Name);
     }
-    static SpriteInfo GetSpriteInfo(TextureInfo textinfo, CroppedImage src)
+    static SpriteInfo GetSpriteInfo(TextureInfo textinfo, ASprite src)
     {
         return textinfo.GetSprite(src);
     }
@@ -223,8 +306,11 @@ internal static class SpriteManager
 
             var now = Time.unscaledTime;
             TextureInfo tinfo = null;
-            foreach(var ti in texture_dict.Values)
+            TextureInfo ti = null;
+            var iter = texture_dict.Values.GetEnumerator();
+            while(iter.MoveNext())
             {
+                ti = iter.Current;
                 if(ti.refcount == 0 && now > ti.pasttime)
                 {
                     tinfo = ti;
@@ -243,11 +329,55 @@ internal static class SpriteManager
             }
         }
     }
+    static IEnumerator UpdateRenderOP()
+    {
+        while(true)
+        {
+            do
+            {
+                yield return new WaitForSeconds(15);
+            } while(texture_other_threads.Count == 0
+                && render_texture_other_threads.Count == 0);
+
+            TextureInfo ti = null;
+            if(texture_other_threads.Count > 0)
+            {
+                TextureInfoOtherThread tiot = null;
+                var tiotiter = texture_other_threads.GetEnumerator();
+                while(tiotiter.MoveNext())
+                {
+                    tiot = tiotiter.Current;
+                    tiot.mutex = new System.Threading.Mutex(true);
+                    //tiot.mutex.WaitOne();
+                    ti = GetTextureInfo(tiot.name, tiot.path);
+                    tiot.callback(ti);
+                    tiot.mutex.ReleaseMutex();
+                }
+                texture_other_threads.Clear();
+            }
+            if(render_texture_other_threads.Count > 0)
+            {
+                RenderTextureOtherThread rtot = null;
+                var rtotiter = render_texture_other_threads.GetEnumerator();
+                while(rtotiter.MoveNext())
+                {
+                    rtot = rtotiter.Current;
+                    rtot.mutex = new System.Threading.Mutex(true);
+                    //tiot.mutex.WaitOne();
+                    var rt = new RenderTexture(rtot.x, rtot.y, 24, RenderTextureFormat.ARGB32);
+                    rtot.callback(rt);
+                    rtot.mutex.ReleaseMutex();
+                }
+                render_texture_other_threads.Clear();
+            }
+        }
+    }
     internal static void ForceClear()
     {
-        foreach(var ti in texture_dict.Values)
+        var iter = texture_dict.Values.GetEnumerator();
+        while(iter.MoveNext())
         {
-            ti.Dispose();
+            iter.Current.Dispose();
         }
         texture_dict.Clear();
         GC.Collect();

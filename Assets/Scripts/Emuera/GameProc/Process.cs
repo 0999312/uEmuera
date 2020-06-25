@@ -56,6 +56,7 @@ namespace MinorShift.Emuera.GameProc
             try
             {
 				ParserMediator.Initialize(console);
+				//コンフィグファイルに関するエラーの処理（コンフィグファイルはこの関数に入る前に読込済み）
 				if (ParserMediator.HasWarning)
 				{
 					ParserMediator.FlushWarningList();
@@ -66,8 +67,15 @@ namespace MinorShift.Emuera.GameProc
 						return false;
 					}
 				}
-				Content.AppContents.LoadContents();
-				
+				//リソースフォルダ読み込み
+				if (!Content.AppContents.LoadContents())
+				{
+					ParserMediator.FlushWarningList();
+					console.PrintSystemLine("リソースフォルダ読み込み中に異常が発見されたため処理を終了します");
+					return false;
+				}
+				ParserMediator.FlushWarningList();
+				//キーマクロ読み込み
                 if (Config.UseKeyMacro && !Program.AnalysisMode)
                 {
                     if (File.Exists(Program.ExeDir + "macro.txt"))
@@ -76,7 +84,8 @@ namespace MinorShift.Emuera.GameProc
 							console.PrintSystemLine("macro.txt読み込み中・・・");
                         KeyMacro.LoadMacroFile(Program.ExeDir + "macro.txt");
                     }
-                }
+				}
+				//_replace.csv読み込み
                 if (Config.UseReplaceFile && !Program.AnalysisMode)
                 {
 					if (File.Exists(Program.CsvDir + "_Replace.csv"))
@@ -100,6 +109,7 @@ namespace MinorShift.Emuera.GameProc
                 //ここでBARを設定すれば、いいことに気づいた予感
                 console.setStBar(Config.DrawLineString);
 
+				//_rename.csv読み込み
 				if (Config.UseRenameFile)
                 {
 					if (File.Exists(Program.CsvDir + "_Rename.csv"))
@@ -115,16 +125,19 @@ namespace MinorShift.Emuera.GameProc
                 {
                     console.PrintSingleLine(Config.LoadLabel);
                     console.RefreshStrings(true);
-                }
+				}
+				//gamebase.csv読み込み
 				gamebase = new GameBase();
                 if (!gamebase.LoadGameBaseCsv(Program.CsvDir + "GAMEBASE.CSV"))
                 {
+					ParserMediator.FlushWarningList();
                     console.PrintSystemLine("GAMEBASE.CSVの読み込み中に問題が発生したため処理を終了しました");
                     return false;
                 }
 				console.SetWindowTitle(gamebase.ScriptWindowTitle);
 				GlobalStatic.GameBaseData = gamebase;
 
+				//前記以外のcsvを全て読み込み
 				ConstantData constant = new ConstantData(gamebase);
 				constant.LoadData(Program.CsvDir, console, Config.DisplayReport);
 				GlobalStatic.ConstantData = constant;
@@ -147,13 +160,19 @@ namespace MinorShift.Emuera.GameProc
 				HeaderFileLoader hLoader = new HeaderFileLoader(console, idDic, this);
 
 				LexicalAnalyzer.UseMacro = false;
+
+				//ERH読込
 				if (!hLoader.LoadHeaderFiles(Program.ErbDir, Config.DisplayReport))
 				{
+					ParserMediator.FlushWarningList();
 					console.PrintSystemLine("ERHの読み込み中にエラーが発生したため処理を終了しました");
 					return false;
 				}
 				LexicalAnalyzer.UseMacro = idDic.UseMacro();
 
+				//TODO:ユーザー定義変数用のcsvの適用
+
+				//ERB読込
 				ErbLoader loader = new ErbLoader(console, exm, this);
                 if (Program.AnalysisMode)
                     noError = loader.loadErbs(Program.AnalysisFiles, labelDic);
@@ -219,6 +238,15 @@ namespace MinorShift.Emuera.GameProc
             return (callFunction("CALLTRAINEND", false, false));
         }
 
+		public void InputResult5(int r0, int r1, int r2, int r3, int r4)
+		{
+			long[] result = vEvaluator.RESULT_ARRAY;
+			result[0] = r0;
+			result[1] = r1;
+			result[2] = r2;
+			result[3] = r3;
+			result[4] = r4;
+		}
 		public void InputInteger(Int64 i)
 		{
 			vEvaluator.RESULT = i;
@@ -239,32 +267,18 @@ namespace MinorShift.Emuera.GameProc
 			startTime = _Library.WinmmTimer.TickCount;
 			state.lineCount = 0;
 			bool systemProcRunning = true;
-
-            //uint sp = 0;
-            //List<uint> spl = new List<uint>();
-
 			try
 			{
-                //int i = 0;
 				while (true)
 				{
 					methodStack = 0;
 					systemProcRunning = true;
-                    while (state.ScriptEnd && console.IsRunning)
+					while (state.ScriptEnd && console.IsRunning)
 						runSystemProc();
-
-                    if(!console.IsRunning)
-                    {
-                        //Console.Write("test");
-                        break;
-                    }
+					if (!console.IsRunning)
+						break;
 					systemProcRunning = false;
-
-                    //sp = _Library.WinmmTimer.TickCount;
-                    runScriptProc();
-                    //spl.Add(_Library.WinmmTimer.TickCount - sp);
-
-                    //++i;
+					runScriptProc();
 				}
 			}
 			catch (Exception ec)
@@ -286,11 +300,17 @@ namespace MinorShift.Emuera.GameProc
 			state.Begin(BeginType.TITLE);
 		}
 
+		public void UpdateCheckInfiniteLoopState()
+		{
+			startTime = _Library.WinmmTimer.TickCount;
+			state.lineCount = 0;
+		}
+
 		private void checkInfiniteLoop()
 		{
 			//うまく動かない。BEEP音が鳴るのを止められないのでこの処理なかったことに（1.51）
 			////フリーズ防止。処理中でも履歴を見たりできる
-			////System.Windows.Forms.//Application.DoEvents();
+			//System.Windows.Forms.Application.DoEvents();
 			////System.Threading.Thread.Sleep(0);
 
 			//if (!console.Enabled)
@@ -421,6 +441,8 @@ namespace MinorShift.Emuera.GameProc
 		
 		private void handleException(Exception exc, LogicalLine current, bool playSound)
 		{
+            UnityEngine.Debug.Log(exc);
+
 			console.ThrowError(playSound);
 			ScriptPosition position = null;
 			EmueraException ee = exc as EmueraException;
